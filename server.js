@@ -31,6 +31,8 @@ const {resolveToken} = require('./token/token');
 const User = require('./model/user');
 const Message = require('./model/message');
 
+
+
 io.on('connection', async(socket)=>{
   //identify user 
   if(!socket.handshake.headers.cookie) return;
@@ -38,15 +40,21 @@ io.on('connection', async(socket)=>{
   if(!token) return;
   const userID = await resolveToken(token);
   const user = await User.findById(userID);
+  
   // join to user
   socket.join(user.email); 
+
+  for(let group of user.groups){
+    socket.join(group);
+  }
  
   socket.on('leave',()=>{
     socket.leave(user.email);
   });
 
-  socket.on('say',async(params)=>{
-    const {to,text,from} = params;
+  socket.on('say',async({to,text,from})=>{
+
+    
     try{
     const newMessage = new Message();
     newMessage.sender = user.email;
@@ -59,9 +67,10 @@ io.on('connection', async(socket)=>{
     }catch(e){
       throw Error(e);
     }
-
-    io.sockets.in(to).emit('newMessage', generateMessage(from,text));
-    socket.emit('newMessage', generateMessage(from,text));
+    io.to(to).emit('newMessage', generateMessage(from,text));
+    let regex = /@\w+\.com/; 
+    let isOneToOne = regex.test(to);
+    if(isOneToOne) socket.emit('newMessage', generateMessage(from,text));
   });
   
   socket.on('disconnect',()=>{
@@ -69,18 +78,22 @@ io.on('connection', async(socket)=>{
     });
 
     socket.on('getHistorial',async({from,to},callback)=>{
-    console.log(from,to);
-    
-      
     try{
-    let messages = await Message.find({
+    let regex = /@\w+\.com/;
+    let isOneToOne = regex.test(to);
+    let messages;
+
+    if(isOneToOne){
+     messages = await Message.find({
           $or:[
             {$and:[{sender:new RegExp("^"+from+"$")},{receiver:new RegExp("^"+to+"$")}]},
             {$and:[{receiver:new RegExp("^"+from+"$")},{sender:new RegExp("^"+to+"$")}]}
           ]
       })
-        console.log(messages);
-        
+    }else{
+      messages = await Message.find({receiver:new RegExp("^"+to+"$")});   
+    }
+      
       socket.emit('receiveHistorial',{messages:messages});
       
       }catch(e){

@@ -99,23 +99,23 @@ const resolvers = {
       let indexFriendInUserSent = user.reqSent.indexOf(friendID);
           if(indexFriendInUserSent!==-1){
              await cancelRequest(user,friend,indexFriendInUserSent,userID);
-             return "Sent Request";
+             return "sendRequest";
           }
 
       let indexFriendInUserReceived = user.reqReceived.indexOf(friendID);
           if(indexFriendInUserReceived!==-1){
             await addFriend(user,friend,indexFriendInUserReceived,userID);
-            return "Delete Friend";
+            return "deleteFriend";
           }
 
       let indexFriendInUserFriends =  user.friendsList.indexOf(friendID);
           if(indexFriendInUserFriends!==-1){
             await deleteFriend(user,friend,indexFriendInUserFriends,userID)
-            return "Sent Request";
+            return "sendRequest";
           }
 
           await sentReq(user,friend,userID,friendID);
-          return "Cancel Request";
+          return "cancelRequest";
 
       }catch(e){
         return false;
@@ -143,9 +143,10 @@ const resolvers = {
       newUser.reqReceived = [];
       newUser.groups =[];
       await newUser.save();
-      
+      const token = createToken(newUser._id);
       
       context.login(newUser);
+      context.res.cookie('access_token',token,{expires:new Date(Date.now() + 8 * 3600000),httpOnly:true}); 
       
       return { user: newUser };
     },
