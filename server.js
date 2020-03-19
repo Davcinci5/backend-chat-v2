@@ -17,7 +17,7 @@ const PORT = 4000;
 require('./passport/local-auth');
 
 //conexxion to database
-mongoose.connect('mongodb://localhost:27017/userChat');
+mongoose.connect('mongodb://mongo:27017/userChat');
 mongoose.connection.once('open',()=>{console.log('connected to db',{useNewUrlParser: true
   });
 })
@@ -40,7 +40,8 @@ io.on('connection', async(socket)=>{
   if(!token) return;
   const userID = await resolveToken(token);
   const user = await User.findById(userID);
-  
+  //leave
+  socket.leave(user.email);
   // join to user
   socket.join(user.email); 
 
@@ -53,8 +54,6 @@ io.on('connection', async(socket)=>{
   });
 
   socket.on('say',async({to,text,from})=>{
-
-    
     try{
     const newMessage = new Message();
     newMessage.sender = user.email;
@@ -67,7 +66,8 @@ io.on('connection', async(socket)=>{
     }catch(e){
       throw Error(e);
     }
-    io.to(to).emit('newMessage', generateMessage(from,text));
+    //io.to(to).emit('newMessage', generateMessage(from,text));
+    socket.broadcast.to(to).emit('newMessage', generateMessage(from,text));
     let regex = /@\w+\.com/; 
     let isOneToOne = regex.test(to);
     if(isOneToOne) socket.emit('newMessage', generateMessage(from,text));
