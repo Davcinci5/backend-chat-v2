@@ -32,7 +32,6 @@ const resolvers = {
   },
   Query: {
     groups:async(parent, args, context)=>{
-
       return await Group.find({});
     },
     currentUser: async (parent, args, context) =>{ 
@@ -49,6 +48,7 @@ const resolvers = {
   },
   Mutation: {
     createGroup:async(parent,{name,addedFriends},context) => {
+     // let { socket } = context;
       try{
         const userID = await resolveToken(context.req.cookies["access_token"]);
         addedFriends.push(userID);
@@ -60,6 +60,7 @@ const resolvers = {
         addedFriends.forEach(async(friendID) =>{
           let participant = await User.findById(friendID);
           participant.groups.push(newGroup.id);
+     //     socket.broadcast.to(participant.email).emit('joinedGroup',{id:newGroup.id});
           await participant.save();
         });
         return newGroup;
@@ -91,6 +92,8 @@ const resolvers = {
        
    },
     friendRequest:async (parent,{friendID},context)=>{
+      //let io = context.io;
+ 
       try{
       let userID = await resolveToken(context.req.cookies["access_token"]),
           user = await User.findById(userID),
@@ -99,24 +102,30 @@ const resolvers = {
       let indexFriendInUserSent = user.reqSent.indexOf(friendID);
           if(indexFriendInUserSent!==-1){
              await cancelRequest(user,friend,indexFriendInUserSent,userID);
+           //  io.to(friend.email).emit('reqCanceled',{id:userID});
              return "sendRequest";
           }
 
       let indexFriendInUserReceived = user.reqReceived.indexOf(friendID);
           if(indexFriendInUserReceived!==-1){
             await addFriend(user,friend,indexFriendInUserReceived,userID);
+            //send to friend data to indicate that HE HAS A NEW FRIEND
+          //  io.to(friend.email).emit('newFriend',{id:userID,fullName:user.fullName,email:user.email});
+           // io.to(user.email).emit('newFriend',{id:friendID,fullName:friend.fullName,email:friend.email});
             return "deleteFriend";
           }
 
       let indexFriendInUserFriends =  user.friendsList.indexOf(friendID);
           if(indexFriendInUserFriends!==-1){
-            await deleteFriend(user,friend,indexFriendInUserFriends,userID)
+            await deleteFriend(user,friend,indexFriendInUserFriends,userID);
+           // io.to(friend.email).emit('removeFriend',{id:userID});
+           // io.to(user.email).emit('removeFriend',{id:friendID})
             return "sendRequest";
           }
 
           await sentReq(user,friend,userID,friendID);
+        //  io.to(friend.email).emit('newReq',{id:userID,fullName:user.fullName,email:user.email});
           return "cancelRequest";
-
       }catch(e){
         return false;
       }
@@ -177,6 +186,12 @@ const resolvers = {
           await userID.save();
             return filename;
     },
+    getDatos: async(parent, args, context) =>{
+      let userID = await resolveToken(context.req.cookies["access_token"]),
+          user = await User.findById(userID);
+          return user;
+   }
+    
   },
 };
   

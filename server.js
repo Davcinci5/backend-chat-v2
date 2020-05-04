@@ -24,6 +24,7 @@ const start = ()=>{
   const {generateMessage} = require('./utils/message');
   const {resolveToken} = require('./token/token');
   const User = require('./model/user');
+  const Group = require('./model/group');
   const Message = require('./model/message');
 
 
@@ -40,7 +41,37 @@ const start = ()=>{
     for(let group of user.groups){    
       socket.join(group);
     }
-  
+  ///
+  socket.on("joinGroup",({id})=>{
+    socket.join(id);
+  });
+
+  socket.on('newGroup',async({to})=>{
+  //  console.log(to);
+   socket.join(to.id);
+   for(let p of to.participants){    
+    let participant = await User.findById(p.id);
+    if(p.id !== userID){      
+      socket.broadcast.to(participant.email).emit('receiveNewGroup', {newGroup:to});
+       //console.log(participant.email);
+    }
+  }
+  });
+
+  ////
+  socket.on('reqSent',async({to})=>{
+    //console.log("entro a req sent ",to);
+    
+    socket.broadcast.to(to.email).emit('reqReceived',{id:userID,fullName:user.fullName,email:user.email});
+  })
+
+  ///
+
+  socket.on('reqAccepted',async({to})=>{
+   // console.log("req ",to);
+    socket.broadcast.to(to.email).emit('newFriend',{id:userID,fullName:user.fullName,email:user.email});
+  })
+  ////
     socket.on('leave',()=>{
       socket.leave(user.email);
       for(let group of user.groups){    
@@ -61,8 +92,8 @@ const start = ()=>{
       }catch(e){
         throw Error(e);
       }
-      console.log("before to use emit, to variable value is changed", to)
-      console.log("How soxket rooms ",socket.rooms);
+     // console.log("before to use emit, to variable value is changed", to)
+     // console.log("How soxket rooms ",socket.rooms);
       
       //socket.broadcast.to(to).emit('newMessage', generateMessage(from,to,text))
       io.to(to).emit('newMessage', generateMessage(from,to,text));
@@ -101,37 +132,37 @@ const start = ()=>{
     });
 
     });
+///
 
+app.use(cookieParser());
+//initialize passport
+app.use(passport.initialize());
+app.use("/images", express.static(path.join(__dirname, "./images")));
 
+const apolloServer = new ApolloServer({
+  typeDefs,
+  resolvers,
+  context: ({ req, res }) => buildContext({ req, res }),
+});
 
-    app.use(cookieParser());
-    //initialize passport
-    app.use(passport.initialize());
-    app.use("/images", express.static(path.join(__dirname, "./images")));
+apolloServer.applyMiddleware({app});//{ app, corse:false }
 
-    const apolloServer = new ApolloServer({
-      typeDefs,
-      resolvers,
-      context: ({ req, res }) => buildContext({ req, res }),
-    });
-    
-    apolloServer.applyMiddleware({app});//{ app, corse:false }
-
-  server.listen({ port: PORT }, () => {
+server.listen({ port: PORT }, () => {
     console.log(`🚀 Server ready at http://mongo:${PORT}`);
   });
+
 
 }
 
 //conexxion to database
-mongoose.connect('mongodb://mongo:27017/userChat').then(start)
+mongoose.connect('mongodb://localhost:27017/userChat').then(start)
 mongoose.connection.once('open',()=>{console.log('connected to db',{useNewUrlParser: true
   });
 })
 // Retry connection
 const connectWithRetry = () => {
   console.log('MongoDB connection with retry')
-  return mongoose.connect('mongodb://mongo:27017/userChat').then(start);
+  return mongoose.connect('mongodb://localhost:27017/userChat').then(start);
 }
 
 // Exit application on error

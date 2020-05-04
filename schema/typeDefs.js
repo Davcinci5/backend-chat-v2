@@ -40,6 +40,7 @@ const typeDefs = gql`
     friendRequest(friendID:String!):String
     searchUsers(chain:String!):[User]
     createGroup(name:String!,addedFriends:[String]!):Group
+    getDatos:User
   }
 `; 
 
